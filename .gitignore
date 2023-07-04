@@ -1,3 +1,8 @@
+.idea
+settings.json
+ADS_ids.txt
+intent_links.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
