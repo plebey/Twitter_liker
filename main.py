@@ -4,6 +4,7 @@ import threading
 import requests
 import time
 from selenium import webdriver
+from selenium.common import TimeoutException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 import sys
@@ -16,12 +17,13 @@ import colorama
 import ads_ids_from_groups as ads_info
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+import logging
 
 
 DIRECTORY = 'C:\.ADSPOWER_GLOBAL\cache'
 #chrome_path = "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
 ADS_IDS_TXT = "ADS_ids.txt"
-START_URL = "https://lumpics.ru/where-are-the-extensions-in-google-chrome/#i-2"
+#START_URL = "https://lumpics.ru/where-are-the-extensions-in-google-chrome/#i-2"
 INTENT_LINKS = "intent_links.txt"
 
 def line_control(file_txt):
@@ -85,8 +87,8 @@ def check_links_existing():
         cprint(f"Файл {INTENT_LINKS} пуст. Заполните его и повторите попытку", "red")
         sys.exit(0)
 
-# TODO: Добавить возможность использования ссылок на профили
-def selenium_task(window_id, open_url, http_link):
+
+def selenium_task(window_id, open_url, http_link, logger):
 
     resp = requests.get(open_url).json()
     if resp["code"] != 0:
@@ -101,12 +103,12 @@ def selenium_task(window_id, open_url, http_link):
     chrome_options.add_argument("--disable-web-security")
     chrome_options.add_argument("--disable-site-isolation-trials")
     chrome_options.add_argument("--disable-popup-blocking")
+    #chrome_options.add_argument("--headless=new")
     # chrome_options.add_experimental_option("excludeSwitches", ["disable-popup-blocking"])
     chrome_options.add_experimental_option("debuggerAddress", resp["data"]["ws"]["selenium"])
     # print(service.command_line_args())
     driver = webdriver.Chrome(service=service, options=chrome_options)
 
-    # TODO: Тут изменил с 0 на -1, надо затестить
     window_handles = driver.window_handles
     driver.switch_to.window(window_handles[-1])
 
@@ -116,10 +118,17 @@ def selenium_task(window_id, open_url, http_link):
         links = [link.strip() for link in file]
 
     wait = WebDriverWait(driver, 10)
+
     for link in links:
-        driver.get(link)
-        element = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div[2]/div[1]')))
-        element.click()
+        try:
+            driver.get(link)
+            element = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div[2]/div[1]')))
+            element.click()
+
+            logger.info(f'<Успех> - acc: {window_id + 1} - link: {link}')
+        except TimeoutException:
+            logger.error(f'<Ошибка> - acc: {window_id + 1} - link: {link}')
+
     # driver.execute_script('window.open("chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn/home.html");')
     # # window_handles = driver.window_handles
     # driver.switch_to.window(driver.window_handles[-1])
@@ -134,9 +143,10 @@ def selenium_task(window_id, open_url, http_link):
     #     input_element.send_keys(passwrds[window_id])
     # input_element.send_keys(Keys.ENTER)
     # wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-    driver.close()
+    #driver.close()
     driver.quit()
-    colorama.deinit()
+
+
 
 
 def settings_management(settings):
@@ -162,12 +172,37 @@ def settings_management(settings):
         file.write(json_data)
     main()
 
-# TODO: Добавить логгер для выполнения программы (также запись ошибок в файл)
+
+def set_logger():
+    logger = logging.getLogger('my_logger')
+    logger.setLevel(logging.INFO)
+    # Создание обработчика для записи в файл
+    file_handler = logging.FileHandler('errors.log')
+    file_handler.setLevel(logging.ERROR)
+    # Создание обработчика для вывода в консоль
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    # Создание форматтера для логов
+    formatter = logging.Formatter('%(asctime)s - %(message)s')
+    # Привязка форматтера к обработчикам
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+    # Привязка обработчиков к логгеру
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    return logger
+
+
+# TODO: Предусмотреть баг твиттера по отмене подписки
 def main():
     colorama.init()
     # ads_id_from_cache()
     set_def_settings()
     check_links_existing()
+
+    # Настройка логов
+    logger = set_logger()
+
     # Загрузка параметров
     with open("settings.json", "r") as file:
         settings = json.load(file)
@@ -185,7 +220,7 @@ def main():
         ids = [line.strip() for line in ids]
 
     cprint("!!!Для перехода в настройки введите 0.", "yellow")
-
+    cprint("Убедитесь, что в intent_links.txt находятся ссылки типа intent, иначе сначала запустите to_intent.py", "red")
     prof_open = input("Номера открываемых профилей (ex: '1, 4-7,10'): ")
 
     # Переход в настройки
@@ -232,13 +267,13 @@ def main():
             # Получение количества активных потоков
             num_threads = len(thread_list)
             # Вывод количества активных потоков
-            # TODO: Изменить на текущие открытые профили
-            print("Количество запущенных потоков:", num_threads-1)
+            #print("Количество запущенных потоков:", num_threads-1)
             if num_threads < int(threads_count)+1:
                 ads_id = ids[window_id]
-                open_url = "http://localhost:50325/api/v1/browser/start?user_id=" + ads_id + "&open_tabs=1" + f"&launch_args={str(args1)}"
-                thread = Thread(target=selenium_task, args=(window_id, open_url, http_link))
+                open_url = "http://localhost:50325/api/v1/browser/start?user_id=" + ads_id + "&open_tabs=1" + f"&launch_args={str(args1)}" + "&headless=1"
+                thread = Thread(target=selenium_task, args=(window_id, open_url, http_link, logger))
                 time.sleep(1.1)
+                logger.info(f'Начато выполнение на профиле: {window_id+1}')
                 thread.start()
                 threads.append(thread)
                 break
@@ -247,6 +282,7 @@ def main():
     # Ожидаем завершения всех потоков
     for thread in threads:
         thread.join()
+    colorama.deinit()
 
 
 if __name__ == '__main__':
