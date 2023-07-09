@@ -4,7 +4,7 @@ import threading
 import requests
 import time
 from selenium import webdriver
-from selenium.common import TimeoutException
+from selenium.common import TimeoutException, InvalidArgumentException, WebDriverException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 import sys
@@ -14,6 +14,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from termcolor import cprint
 import colorama
+from colorama import Fore
 import ads_ids_from_groups as ads_info
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -25,6 +26,15 @@ DIRECTORY = 'C:\.ADSPOWER_GLOBAL\cache'
 ADS_IDS_TXT = "ADS_ids.txt"
 #START_URL = "https://lumpics.ru/where-are-the-extensions-in-google-chrome/#i-2"
 INTENT_LINKS = "intent_links.txt"
+COLORS = {
+    logging.DEBUG: Fore.WHITE,
+    logging.INFO: Fore.CYAN,
+    logging.WARNING: Fore.YELLOW,
+    logging.ERROR: Fore.RED,
+    logging.CRITICAL: Fore.MAGENTA
+}
+FORMATTER = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
 
 def line_control(file_txt):
     # Удаление пустых строк
@@ -126,8 +136,9 @@ def selenium_task(window_id, open_url, http_link, logger):
             element.click()
 
             logger.info(f'<Успех> - acc: {window_id + 1} - link: {link}')
-        except TimeoutException:
-            logger.error(f'<Ошибка> - acc: {window_id + 1} - link: {link}')
+        except:
+            logger.error(f'<Ошибка INVALID_LINK> - acc: {window_id + 1} - link: {link}')
+
 
     # driver.execute_script('window.open("chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn/home.html");')
     # # window_handles = driver.window_handles
@@ -145,8 +156,6 @@ def selenium_task(window_id, open_url, http_link, logger):
     # wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
     #driver.close()
     driver.quit()
-
-
 
 
 def settings_management(settings):
@@ -173,6 +182,13 @@ def settings_management(settings):
     main()
 
 
+def colorize_log(record):
+    level_color = COLORS.get(record.levelno, Fore.RESET)
+    asctime = FORMATTER.formatTime(record, "%Y-%m-%d %H:%M:%S")
+    message = f"{level_color}{asctime} - {record.getMessage()}{Fore.RESET}"
+    return message
+
+
 def set_logger():
     logger = logging.getLogger('my_logger')
     logger.setLevel(logging.INFO)
@@ -183,10 +199,10 @@ def set_logger():
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
     # Создание форматтера для логов
-    formatter = logging.Formatter('%(asctime)s - %(message)s')
+    FORMATTER.format = colorize_log
     # Привязка форматтера к обработчикам
-    file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
+    file_handler.setFormatter(FORMATTER)
+    console_handler.setFormatter(FORMATTER)
     # Привязка обработчиков к логгеру
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
@@ -211,6 +227,7 @@ def main():
     ads_ids_from_group(settings)
 
     line_control(ADS_IDS_TXT)
+    line_control(INTENT_LINKS)
 
     # Загрузка id_ads
     with open(ADS_IDS_TXT, "r") as file:
