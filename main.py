@@ -133,6 +133,8 @@ def selenium_task(window_id, open_url, http_link, logger):
         try:
             driver.get(link)
             element = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div[2]/div[1]')))
+            # Нужно для полной прогрузки страницы
+            time.sleep(3)
             element.click()
 
             logger.info(f'<Успех> - acc: {window_id + 1} - link: {link}')
@@ -209,7 +211,6 @@ def set_logger():
     return logger
 
 
-# TODO: Предусмотреть баг твиттера по отмене подписки
 def main():
     colorama.init()
     # ads_id_from_cache()
