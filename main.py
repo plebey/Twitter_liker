@@ -19,7 +19,7 @@ import ads_ids_from_groups as ads_info
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 import logging
-
+import re
 
 DIRECTORY = 'C:\.ADSPOWER_GLOBAL\cache'
 #chrome_path = "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
@@ -132,7 +132,11 @@ def selenium_task(window_id, open_url, http_link, logger):
     for link in links:
         try:
             driver.get(link)
-            element = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div[2]/div[1]')))
+            if re.match(r'(https?://twitter\.com/intent/tweet.+)', link):
+                element = wait.until(EC.presence_of_element_located(
+                    (By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div/div/div/div[3]/div[2]/div[1]/div/div/div/div[2]/div[2]/div/div/div[2]/div[4]')))
+            else:
+                element = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="layers"]/div[2]/div/div/div/div/div/div[2]/div[2]/div[2]/div[1]')))
             # Нужно для полной прогрузки страницы
             time.sleep(3)
             element.click()
@@ -156,7 +160,7 @@ def selenium_task(window_id, open_url, http_link, logger):
     #     input_element.send_keys(passwrds[window_id])
     # input_element.send_keys(Keys.ENTER)
     # wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-    #driver.close()
+    driver.close()
     driver.quit()
 
 
@@ -284,7 +288,6 @@ def main():
             thread_list = threading.enumerate()
             # Получение количества активных потоков
             num_threads = len(thread_list)
-            # Вывод количества активных потоков
             #print("Количество запущенных потоков:", num_threads-1)
             if num_threads < int(threads_count)+1:
                 ads_id = ids[window_id]
